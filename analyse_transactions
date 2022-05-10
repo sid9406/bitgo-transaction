@@ -1,0 +1,13 @@
+const fetchTransactions = require('./fetch_transactions').fetchAllTransactions
+
+
+const blockHeight = 680000
+
+
+async function analyseTransactions(){
+    const transactions = await fetchTransactions(blockHeight)
+    console.log('transactions', transactions)
+
+}
+
+analyseTransactions()
