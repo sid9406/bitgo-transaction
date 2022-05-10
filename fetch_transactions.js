@@ -17,7 +17,7 @@ function getBlockInfo(blockHash){
 
 function getTransactionsForBlockForPage(blockHash, page){
     //caching the response as API call timeouts for some cases
-    var name = `transactions/transaction_page_${page}.json`
+    var name = `cached_files/transaction_page_${page}.json`
     if(!fs.existsSync(name)){
     var start = (page - 1)* PAGE_SIZE
     return axios.get(url + `/block/${blockHash}/txs/${start}`)
