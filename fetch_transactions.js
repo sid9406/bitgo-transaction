@@ -1,6 +1,8 @@
 const axios = require('axios').default
 
 const url = 'https://blockstream.info/api'
+const PAGE_SIZE = 25
+const fs = require('fs')
 
 function getBlockInfo(blockHash){
     return axios.get(url + `/block/${blockHash}`)
@@ -13,15 +15,23 @@ function getBlockInfo(blockHash){
             })
 }
 
-function getTransactionsForBlockForPage(blockHash, start){
+function getTransactionsForBlockForPage(blockHash, page){
+    //caching the response as API call timeouts for some cases
+    var name = `transactions/transaction_page_${page}.json`
+    if(!fs.existsSync(name)){
+    var start = (page - 1)* PAGE_SIZE
     return axios.get(url + `/block/${blockHash}/txs/${start}`)
                 .then(function(res){
+                    fs.writeFileSync(name, JSON.stringify(res.data), 'utf8');
                     return res.data
                 })
                 .catch(err => {
-                    console.log(`failed to fetch transactions for block : ${blockHash} due to err : `, err)
+                    console.log(`failed to fetch transactions for block : ${blockHash} and page : ${page} due to err : `, err)
                     throw err
                 })
+    }else{
+        return JSON.parse(fs.readFileSync(name , 'utf8'));
+    }
 }
 
 function getBlockHashByBlockHeight(blockHeight){
@@ -37,33 +47,32 @@ function getBlockHashByBlockHeight(blockHeight){
 
 
 async function fetchAllTransactions(blockHeight){
-    const PAGE_SIZE = 25
 
     const blockHash =  await getBlockHashByBlockHeight(blockHeight)
 
-    const blockInfo = await getBlockInfo(blockHash)
+    console.log('blockhash', blockHash)
 
-    console.log('blockInfo', blockInfo)
+    const blockInfo = await getBlockInfo(blockHash)
 
     const totalPages = Math.floor((blockInfo.tx_count + PAGE_SIZE - 1)/PAGE_SIZE)
 
 
+    console.log('total Pages', totalPages)
     const transactionPromises = []
 
     for(let page = 1; page <= totalPages ; page++){
-        var start = (page - 1)* PAGE_SIZE
-        transactionPromises.push(getTransactionsForBlockForPage(blockHash, start))
+        transactionPromises.push(getTransactionsForBlockForPage(blockHash, page))
     }
     
     const allTransactions = []
 
 
-    await Promise.all(transactionPromises).then( (transactionPerPage) => {
-        allTransactions.push(...transactionPerPage)
+    await Promise.all(transactionPromises).then( (transactionsForAllPages) => {
+        transactionsForAllPages.forEach(perPage => allTransactions.push(...perPage))
     })
     return allTransactions
 }
 
 module.exports = {
-    fetchAllTransactions : fetchAllTransactions
+    fetchAllTransactions : fetchAllTransactions,
 }
